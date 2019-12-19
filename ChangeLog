@@ -1,4 +1,5 @@
 TODO
+* rename key to page_tree_key
 * add LZXPRESSED compressed string to compression test
 
 * fix XOR checksum in esedb_test_checksum_calculate_little_endian_ecc32 test

@@ -26,10 +26,14 @@
 #include <types.h>
 
 #include "libesedb_io_handle.h"
+#include "libesedb_key.h"
 #include "libesedb_libbfio.h"
 #include "libesedb_libcerror.h"
 #include "libesedb_libfcache.h"
 #include "libesedb_libfdata.h"
+#include "libesedb_page.h"
+#include "libesedb_page_tree_value.h"
+#include "libesedb_page_value.h"
 #include "libesedb_table_definition.h"
 
 #if defined( __cplusplus )
@@ -43,6 +47,10 @@ struct libesedb_page_tree
 	/* The IO handle
 	 */
 	libesedb_io_handle_t *io_handle;
+
+	/* The root page number
+	 */
+	uint32_t root_page_number;
 
 	/* The object identifier
 	 */
@@ -92,13 +100,6 @@ int libesedb_page_tree_read_space_tree_page(
      uint32_t page_number,
      libcerror_error_t **error );
 
-int libesedb_page_tree_get_first_leaf_page(
-     libesedb_page_tree_t *page_tree,
-     libbfio_handle_t *file_io_handle,
-     off64_t root_page_offset,
-     uint32_t root_page_number,
-     libcerror_error_t **error );
-
 int libesedb_page_tree_read_page(
      libesedb_page_tree_t *page_tree,
      libbfio_handle_t *file_io_handle,
@@ -106,6 +107,32 @@ int libesedb_page_tree_read_page(
      uint32_t page_number,
      libfdata_btree_node_t *node,
      libcerror_error_t **error );
+
+int libesedb_page_tree_get_key_and_value(
+     libesedb_page_tree_t *page_tree,
+     libesedb_page_t *page,
+     uint16_t page_value_index,
+     libesedb_page_value_t *page_value,
+     libesedb_key_t **key,
+     libesedb_page_tree_value_t **page_tree_value,
+     libcerror_error_t **error );
+
+int libesedb_page_tree_get_number_of_leaf_values_from_page(
+     libesedb_page_tree_t *page_tree,
+     libbfio_handle_t *file_io_handle,
+     libesedb_page_t *page,
+     int *number_of_leaf_values,
+     int recursion_depth,
+     libcerror_error_t **error );
+
+int libesedb_page_tree_get_number_of_leaf_values(
+     libesedb_page_tree_t *page_tree,
+     libbfio_handle_t *file_io_handle,
+     uint32_t root_page_number,
+     int *number_of_leaf_values,
+     libcerror_error_t **error );
+
+/* TODO deprecate */
 
 int libesedb_page_tree_read_node(
      libesedb_page_tree_t *page_tree,

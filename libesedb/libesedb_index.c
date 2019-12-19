@@ -60,7 +60,6 @@ int libesedb_index_initialize(
      libcerror_error_t **error )
 {
 	libesedb_internal_index_t *internal_index = NULL;
-	libesedb_page_tree_t *index_page_tree     = NULL;
 	static char *function                     = "libesedb_index_initialize";
 	off64_t node_data_offset                  = 0;
 
@@ -142,7 +141,7 @@ int libesedb_index_initialize(
 	/* TODO (template) table definition required ? */
 
 	if( libesedb_page_tree_initialize(
-	     &index_page_tree,
+	     &( internal_index->index_page_tree ),
 	     io_handle,
 	     pages_vector,
 	     pages_cache,
@@ -164,12 +163,12 @@ int libesedb_index_initialize(
 	 */
 	if( libfdata_btree_initialize(
 	     &( internal_index->index_values_tree ),
-	     (intptr_t *) index_page_tree,
-	     (int (*)(intptr_t **, libcerror_error_t **)) &libesedb_page_tree_free,
+	     (intptr_t *) internal_index->index_page_tree,
+	     NULL,
 	     NULL,
 	     (int (*)(intptr_t *, intptr_t *, libfdata_btree_node_t *, int, off64_t, size64_t, uint32_t, intptr_t *, uint8_t, libcerror_error_t **)) &libesedb_page_tree_read_node,
 	     (int (*)(intptr_t *, intptr_t *, libfdata_btree_t *, libfdata_cache_t *, int, int, off64_t, size64_t, uint32_t, intptr_t *, uint8_t, libcerror_error_t **)) &libesedb_page_tree_read_leaf_value,
-	     LIBFDATA_DATA_HANDLE_FLAG_MANAGED,
+	     LIBFDATA_DATA_HANDLE_FLAG_NON_MANAGED,
 	     error ) != 1 )
 	{
 		libcerror_error_set(
@@ -178,10 +177,6 @@ int libesedb_index_initialize(
 		 LIBCERROR_RUNTIME_ERROR_INITIALIZE_FAILED,
 		 "%s: unable to create index values tree.",
 		 function );
-
-		libesedb_page_tree_free(
-		 &index_page_tree,
-		 NULL );
 
 		goto on_error;
 	}
@@ -232,6 +227,7 @@ int libesedb_index_initialize(
 	internal_index->table_values_cache        = table_values_cache;
 	internal_index->long_values_tree          = long_values_tree;
 	internal_index->long_values_cache         = long_values_cache;
+	internal_index->number_of_records         = -1;
 
 	*index = (libesedb_index_t *) internal_index;
 
@@ -250,6 +246,12 @@ on_error:
 		{
 			libfdata_btree_free(
 			 &( internal_index->index_values_tree ),
+			 NULL );
+		}
+		if( internal_index->index_page_tree != NULL )
+		{
+			libesedb_page_tree_free(
+			 &( internal_index->index_page_tree ),
 			 NULL );
 		}
 		memory_free(
@@ -289,6 +291,19 @@ int libesedb_index_free(
 		 * index_catalog_definition, pages_vector, pages_cache, table_values_tree,
 		 * table_values_cache, long_values_tree and long_values_cache references are freed elsewhere
 		 */
+		if( libesedb_page_tree_free(
+		     &( internal_index->index_page_tree ),
+		     error ) != 1 )
+		{
+			libcerror_error_set(
+			 error,
+			 LIBCERROR_ERROR_DOMAIN_RUNTIME,
+			 LIBCERROR_RUNTIME_ERROR_FINALIZE_FAILED,
+			 "%s: unable to free index page tree.",
+			 function );
+
+			result = -1;
+		}
 		if( libfdata_btree_free(
 		     &( internal_index->index_values_tree ),
 		     error ) != 1 )
@@ -606,23 +621,38 @@ int libesedb_index_get_number_of_records(
 	}
 	internal_index = (libesedb_internal_index_t *) index;
 
-	if( libfdata_btree_get_number_of_leaf_values(
-	     internal_index->index_values_tree,
-	     (intptr_t *) internal_index->file_io_handle,
-	     (libfdata_cache_t *) internal_index->index_values_cache,
-	     number_of_records,
-	     0,
-	     error ) != 1 )
+	if( number_of_records == NULL )
 	{
 		libcerror_error_set(
 		 error,
-		 LIBCERROR_ERROR_DOMAIN_RUNTIME,
-		 LIBCERROR_RUNTIME_ERROR_GET_FAILED,
-		 "%s: unable to retrieve number of leaf values from index values tree.",
+		 LIBCERROR_ERROR_DOMAIN_ARGUMENTS,
+		 LIBCERROR_ARGUMENT_ERROR_INVALID_VALUE,
+		 "%s: invalid number of records.",
 		 function );
 
 		return( -1 );
 	}
+	if( internal_index->number_of_records == -1 )
+	{
+		if( libesedb_page_tree_get_number_of_leaf_values(
+		     internal_index->index_page_tree,
+		     internal_index->file_io_handle,
+		     internal_index->index_catalog_definition->father_data_page_number,
+		     &( internal_index->number_of_records ),
+		     error ) != 1 )
+		{
+			libcerror_error_set(
+			 error,
+			 LIBCERROR_ERROR_DOMAIN_RUNTIME,
+			 LIBCERROR_RUNTIME_ERROR_GET_FAILED,
+			 "%s: unable to retrieve number of leaf values from index page tree.",
+			 function );
+
+			return( -1 );
+		}
+	}
+	*number_of_records = internal_index->number_of_records;
+
 	return( 1 );
 }
 

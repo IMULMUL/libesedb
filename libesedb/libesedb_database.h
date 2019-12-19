@@ -30,6 +30,7 @@
 #include "libesedb_libcerror.h"
 #include "libesedb_libfcache.h"
 #include "libesedb_libfdata.h"
+#include "libesedb_page_tree.h"
 
 #if defined( __cplusplus )
 extern "C" {
@@ -39,24 +40,33 @@ typedef struct libesedb_database libesedb_database_t;
 
 struct libesedb_database
 {
-	/* TODO implement something useful */
-	int dummy;
+	/* The page tree
+	 */
+	libesedb_page_tree_t *page_tree;
 };
 
 int libesedb_database_initialize(
      libesedb_database_t **database,
+     libesedb_io_handle_t *io_handle,
+     libfdata_vector_t *pages_vector,
+     libfcache_cache_t *pages_cache,
      libcerror_error_t **error );
 
 int libesedb_database_free(
      libesedb_database_t **database,
      libcerror_error_t **error );
 
-int libesedb_database_read(
+int libesedb_database_read_values_from_page(
      libesedb_database_t *database,
      libbfio_handle_t *file_io_handle,
-     libesedb_io_handle_t *io_handle,
-     libfdata_vector_t *pages_vector,
-     libfcache_cache_t *pages_cache,
+     libesedb_page_t *page,
+     int *leaf_value_index,
+     int recursion_depth,
+     libcerror_error_t **error );
+
+int libesedb_database_read_file_io_handle(
+     libesedb_database_t *database,
+     libbfio_handle_t *file_io_handle,
      libcerror_error_t **error );
 
 #if defined( __cplusplus )

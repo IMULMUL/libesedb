@@ -53,7 +53,6 @@ int libesedb_table_initialize(
 {
 	libesedb_internal_table_t *internal_table   = NULL;
 	libesedb_page_tree_t *long_values_page_tree = NULL;
-	libesedb_page_tree_t *table_page_tree       = NULL;
 	static char *function                       = "libesedb_table_initialize";
 	off64_t node_data_offset                    = 0;
 	int segment_index                           = 0;
@@ -199,7 +198,7 @@ int libesedb_table_initialize(
 		goto on_error;
 	}
 	if( libesedb_page_tree_initialize(
-	     &table_page_tree,
+	     &( internal_table->table_page_tree ),
 	     io_handle,
 	     internal_table->pages_vector,
 	     internal_table->pages_cache,
@@ -221,12 +220,12 @@ int libesedb_table_initialize(
 	 */
 	if( libfdata_btree_initialize(
 	     &( internal_table->table_values_tree ),
-	     (intptr_t *) table_page_tree,
-	     (int (*)(intptr_t **, libcerror_error_t **)) &libesedb_page_tree_free,
+	     (intptr_t *) internal_table->table_page_tree,
+	     NULL,
 	     NULL,
 	     (int (*)(intptr_t *, intptr_t *, libfdata_btree_node_t *, int, off64_t, size64_t, uint32_t, intptr_t *, uint8_t, libcerror_error_t **)) &libesedb_page_tree_read_node,
 	     (int (*)(intptr_t *, intptr_t *, libfdata_btree_t *, libfdata_cache_t *, int, int, off64_t, size64_t, uint32_t, intptr_t *, uint8_t, libcerror_error_t **)) &libesedb_page_tree_read_leaf_value,
-	     LIBFDATA_DATA_HANDLE_FLAG_MANAGED,
+	     LIBFDATA_DATA_HANDLE_FLAG_NON_MANAGED,
 	     error ) != 1 )
 	{
 		libcerror_error_set(
@@ -235,10 +234,6 @@ int libesedb_table_initialize(
 		 LIBCERROR_RUNTIME_ERROR_INITIALIZE_FAILED,
 		 "%s: unable to create table values tree.",
 		 function );
-
-		libesedb_page_tree_free(
-		 &table_page_tree,
-		 NULL );
 
 		goto on_error;
 	}
@@ -415,6 +410,7 @@ int libesedb_table_initialize(
 	internal_table->file_io_handle            = file_io_handle;
 	internal_table->table_definition          = table_definition;
 	internal_table->template_table_definition = template_table_definition;
+	internal_table->number_of_records         = -1;
 
 	*table = (libesedb_table_t *) internal_table;
 
@@ -457,6 +453,12 @@ on_error:
 		{
 			libfdata_btree_free(
 			 &( internal_table->table_values_tree ),
+			 NULL );
+		}
+		if( internal_table->table_page_tree != NULL )
+		{
+			libesedb_page_tree_free(
+			 &( internal_table->table_page_tree ),
 			 NULL );
 		}
 		if( internal_table->pages_cache != NULL )
@@ -587,6 +589,19 @@ int libesedb_table_free(
 			 LIBCERROR_ERROR_DOMAIN_RUNTIME,
 			 LIBCERROR_RUNTIME_ERROR_FINALIZE_FAILED,
 			 "%s: unable to free table values cache.",
+			 function );
+
+			result = -1;
+		}
+		if( libesedb_page_tree_free(
+		     &( internal_table->table_page_tree ),
+		     error ) != 1 )
+		{
+			libcerror_error_set(
+			 error,
+			 LIBCERROR_ERROR_DOMAIN_RUNTIME,
+			 LIBCERROR_RUNTIME_ERROR_FINALIZE_FAILED,
+			 "%s: unable to free table page tree.",
 			 function );
 
 			result = -1;
@@ -1682,23 +1697,38 @@ int libesedb_table_get_number_of_records(
 	}
 	internal_table = (libesedb_internal_table_t *) table;
 
-	if( libfdata_btree_get_number_of_leaf_values(
-	     internal_table->table_values_tree,
-	     (intptr_t *) internal_table->file_io_handle,
-	     (libfdata_cache_t *) internal_table->table_values_cache,
-	     number_of_records,
-	     0,
-	     error ) != 1 )
+	if( number_of_records == NULL )
 	{
 		libcerror_error_set(
 		 error,
-		 LIBCERROR_ERROR_DOMAIN_RUNTIME,
-		 LIBCERROR_RUNTIME_ERROR_GET_FAILED,
-		 "%s: unable to retrieve number of leaf values from table values tree.",
+		 LIBCERROR_ERROR_DOMAIN_ARGUMENTS,
+		 LIBCERROR_ARGUMENT_ERROR_INVALID_VALUE,
+		 "%s: invalid number of records.",
 		 function );
 
 		return( -1 );
 	}
+	if( internal_table->number_of_records == -1 )
+	{
+		if( libesedb_page_tree_get_number_of_leaf_values(
+		     internal_table->table_page_tree,
+		     internal_table->file_io_handle,
+		     internal_table->table_definition->table_catalog_definition->father_data_page_number,
+		     &( internal_table->number_of_records ),
+		     error ) != 1 )
+		{
+			libcerror_error_set(
+			 error,
+			 LIBCERROR_ERROR_DOMAIN_RUNTIME,
+			 LIBCERROR_RUNTIME_ERROR_GET_FAILED,
+			 "%s: unable to retrieve number of leaf values from table page tree.",
+			 function );
+
+			return( -1 );
+		}
+	}
+	*number_of_records = internal_table->number_of_records;
+
 	return( 1 );
 }
 
